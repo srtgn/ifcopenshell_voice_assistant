@@ -1,0 +1,8 @@
+!pip install apiai
+!pip install SpeechRecognition
+# !conda remove pyaudio
+# !conda remove portaudio
+!conda install nwani::portaudio nwani::pyaudio --yes
+
+import apiai
+import speech_recognition as sr
