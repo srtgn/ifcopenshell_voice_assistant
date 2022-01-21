@@ -1,0 +1,287 @@
+import ifcopenshell
+import numpy
+import apiai
+import speech_recognition as sr
+import re
+import pyttsx3
+import webbrowser
+import uuid
+import time
+import tempfile
+
+
+
+class VoiceAssistant():
+        
+    sensitive_keywords = ["colour", "dimension", "element", "file"]
+    colours = ["red","blue","yellow"]
+    dimensions = ["x","y","height"]
+    elements = ["wall","window","door"]
+    files = ["4","5","6"]
+
+    def text_to_voice (self, text):
+
+        engine = pyttsx3.init();
+        engine.say(text);
+        # engine.setProperty('voice', voices[2].id)
+        engine.setProperty("rate", 155)
+        engine.runAndWait() ;
+
+
+    def get_voice (self):
+
+        raw_text = {}
+        r = sr.Recognizer()
+        mic = sr.Microphone()
+        with mic as source:
+            r.adjust_for_ambient_noise(source, duration=1)
+            r.pause_threshold = 0.8
+            r.dynamic_energy_threshold = True
+            audio = r.listen(source)
+            raw_text = r.recognize_google(audio)
+        return raw_text
+
+
+    def nlp(self, raw_text, sensitive_keywords):
+
+        command_type = [x for x in sensitive_keywords if x in raw_text]
+        if command_type[0] == 'colour':
+            command_sup = [x for x in self.colours if x in raw_text]
+        elif command_type[0] == 'dimension':
+            command_sup = [x for x in self.dimensions if x in raw_text]
+        elif command_type[0] == 'element':
+            command_sup = [x for x in self.elements if x in raw_text]
+        elif command_type[0] == 'file':
+            command_sup = [x for x in self.files if x in raw_text]
+        return command_type, command_sup
+
+
+    def open_file(self):
+
+        self.text_to_voice (f' Can you please give me the file name')
+        get_voice_text = self.get_voice()
+        file_name_ = re.findall('\d*\.?\d+',get_voice_text)[0]
+
+        if [x for x in file_name_ if x in self.files]:
+            
+            self.text_to_voice (f'Ok, I will open the file {file_name_}')
+            webbrowser.open(f'{file_name_}.txt')
+
+        else:
+            
+            while bool([x for x in file_name_ if x in self.files])==False:
+                
+                self.text_to_voice (f' Sorry, but I can only open file {self.files}, Can you please give me the file name?')
+                get_voice_text = self.get_voice()
+                file_name_ = re.findall('\d*\.?\d+',get_voice_text)[0]
+                if [x for x in file_name_ if x in self.files]:
+                    self.text_to_voice (f'Ok, I will open the file {file_name_}')
+                    webbrowser.open(f'{file_name_}.txt')
+
+    def change_wall_color(self):
+        
+        self.text_to_voice (f' Can you please give me the desired colour')
+        get_voice_text = self.get_voice()
+        colour_name_ = [x for x in get_voice_text if x in self.colours]
+
+        if [x for x in self.colours if x in get_voice_text]:
+            
+            self.text_to_voice (f'Ok, I will change the colour to {colour_name_}')
+            """a command to change the colour of the wall"""
+            
+        else:
+            
+            while bool([x for x in self.colours if x in get_voice_text])==False:
+                
+                self.text_to_voice (f' Sorry, but I can only change to colour to {self.colours},Can you please give me the desired colour?')
+                get_voice_text = self.get_voice()
+                colour_name_ = [x for x in self.colours if x in get_voice_text]
+                
+                if [x for x in colour_name_ if x in self.colours]:
+                    
+                    self.text_to_voice (f'Ok, I will change the colour to {colour_name_}')
+                    """a command to change the colour of the wall"""
+
+
+
+
+    """ This block of code creates a wall"""
+
+    #Variables directions
+    O = 0., 0., 0.
+    X = 1., 0., 0.
+    Y = 0., 1., 0.
+    Z = 0., 0., 1.
+
+
+    #open a file/Import this from mail file somehow!!!!
+    ifcfile = ifcopenshell.open("./one.ifc")
+
+    # Obtain references to instances defined in template !!! Define the filename with code
+    owner_history = ifcfile.by_type("IfcOwnerHistory")[0]
+    project = ifcfile.by_type("IfcProject")[0]
+    context = ifcfile.by_type("IfcGeometricRepresentationContext")[0]
+    filename = "one.ifc"
+
+    # Creates an IfcAxis2Placement3D from Location, Axis and RefDirection specified as Python tuples
+    def create_ifcaxis2placement(self, ifcfile, point=O, dir1=Z, dir2=X):
+        point = ifcfile.createIfcCartesianPoint(point)
+        dir1 = ifcfile.createIfcDirection(dir1)
+        dir2 = ifcfile.createIfcDirection(dir2)
+        axis2placement = ifcfile.createIfcAxis2Placement3D(point, dir1, dir2)
+        return axis2placement
+
+    # Creates an IfcLocalPlacement from Location, Axis and RefDirection, specified as Python tuples, and relative placement
+    def create_ifclocalplacement(self, ifcfile, point=O, dir1=Z, dir2=X, relative_to=None):
+        axis2placement = self.create_ifcaxis2placement(ifcfile,point,dir1,dir2)
+        ifclocalplacement2 = ifcfile.createIfcLocalPlacement(relative_to,axis2placement)
+        return ifclocalplacement2
+
+    # Creates an IfcPolyLine from a list of points, specified as Python tuples
+    def create_ifcpolyline(self, ifcfile, point_list):
+        ifcpts = []
+        for point in point_list:
+            point = ifcfile.createIfcCartesianPoint(point)
+            ifcpts.append(point)
+        polyline = ifcfile.createIfcPolyLine(ifcpts)
+        return polyline
+        
+    # Creates an IfcExtrudedAreaSolid from a list of points, specified as Python tuples
+    def create_ifcextrudedareasolid(self,ifcfile, point_list, ifcaxis2placement, extrude_dir, extrusion):
+        polyline = self.create_ifcpolyline(ifcfile, point_list)
+        ifcclosedprofile = ifcfile.createIfcArbitraryClosedProfileDef("AREA", None, polyline)
+        ifcdir = ifcfile.createIfcDirection(extrude_dir)
+        ifcextrudedareasolid = ifcfile.createIfcExtrudedAreaSolid(ifcclosedprofile, ifcaxis2placement, ifcdir, extrusion)
+        return ifcextrudedareasolid
+        
+    
+
+    # IFC hierarchy creation
+    # def get_ifc_heirarchy(self):
+    #     site_placement = self.create_ifclocalplacement(self.ifcfile)
+    #     site = self.ifcfile.createIfcSite(self.create_guid(), self.owner_history, "Site", None, None, site_placement, None, None, "ELEMENT", None, None, None, None, None)
+
+    #     building_placement = self.create_ifclocalplacement(self.ifcfile, relative_to=site_placement)
+    #     building = self.ifcfile.createIfcBuilding(self.create_guid(), self.owner_history, 'Building', None, None, building_placement, None, None, "ELEMENT", None, None, None)
+
+    #     storey_placement = self.create_ifclocalplacement(self.ifcfile, relative_to=building_placement)
+    #     elevation = 0.0
+    #     building_storey = self.ifcfile.createIfcBuildingStorey(self.create_guid(), self.owner_history, 'Storey', None, None, storey_placement, None, None, "ELEMENT", elevation)
+
+    #     container_storey = self.ifcfile.createIfcRelAggregates(self.create_guid(),self.owner_history, "Building Container", None, building, [building_storey])
+    #     container_site = self.ifcfile.createIfcRelAggregates(self.create_guid(), self.owner_history, "Site Container", None, site, [building])
+    #     container_project = self.ifcfile.createIfcRelAggregates(self.create_guid(), self.owner_history, "Project Container", None, self.project, [site])
+
+    #     return site_placement, site, building_placement, building, storey_placement, building_storey, container_storey, container_site, container_project
+
+    # site_placement, site, building_placement, building, storey_placement, building_storey, container_storey, container_site, container_project = get_ifc_heirarchy()
+        
+    #Wall Input Conversations
+    def create_wall(self):
+
+        create_guid = lambda: ifcopenshell.guid.compress(uuid.uuid1().hex)
+
+        site_placement = self.create_ifclocalplacement(self.ifcfile)
+        site = self.ifcfile.createIfcSite(create_guid(), self.owner_history, "Site", None, None, site_placement, None, None, "ELEMENT", None, None, None, None, None)
+
+        building_placement = self.create_ifclocalplacement(self.ifcfile, relative_to=site_placement)
+        building = self.ifcfile.createIfcBuilding(create_guid(), self.owner_history, 'Building', None, None, building_placement, None, None, "ELEMENT", None, None, None)
+
+        storey_placement = self.create_ifclocalplacement(self.ifcfile, relative_to=building_placement)
+        elevation = 0.0
+        building_storey = self.ifcfile.createIfcBuildingStorey(create_guid(), self.owner_history, 'Storey', None, None, storey_placement, None, None, "ELEMENT", elevation)
+
+        container_storey = self.ifcfile.createIfcRelAggregates(create_guid(),self.owner_history, "Building Container", None, building, [building_storey])
+        container_site = self.ifcfile.createIfcRelAggregates(create_guid(), self.owner_history, "Site Container", None, site, [building])
+        container_project = self.ifcfile.createIfcRelAggregates(create_guid(), self.owner_history, "Project Container", None, self.project, [site])
+
+        text = []
+        self.text_to_voice (f"Please enter X dimension\n")
+        text = self.get_voice()
+        x_dimension = float(re.findall('\d*\.?\d+', text)[0])
+        # text_to_voice (f" X dimension is {x_dimension}")
+        self.text_to_voice (f" OK")
+
+        text = []
+        self.text_to_voice (f"Please enter y dimension\n")
+        text = self.get_voice()
+        y_dimension = float(re.findall('\d*\.?\d+', text)[0])
+        #print(y_dimension)
+        # text_to_voice (f" Y dimension is {y_dimension}")
+        self.text_to_voice (f" OK")
+
+        text = []
+        self.text_to_voice (f"Please enter the height\n")
+        text = self.get_voice()
+        z_dimension = float(re.findall('\d*\.?\d+', text)[0])
+        #print(z_dimension)
+        # text_to_voice (f" Height is {z_dimension}")
+        self.text_to_voice (f" OK")
+
+        text = []
+        self.text_to_voice (f"Please give me the x and y values of the closest point to origin\n")
+        text = self.get_voice()
+        origin_x = float(re.findall('\d*\.?\d+', text)[0])
+        origin_y = float(re.findall('\d*\.?\d+', text)[1])
+        # text_to_voice (f"Closest point is {origin_x} comma {origin_x}")
+        self.text_to_voice (f" OK, I will create the element")
+        # text_to_voice (f" OK, now I can add a wall that its X dimension is {x_dimension}, y dimension is {y_dimension}, height is {z_dimension}, and the origin coordination is {origin_x} ans {origin_x} ")
+
+        #coordinate creation
+        point_list_extrusion_area = [(origin_x, origin_y, 0.0), (x_dimension + origin_x, origin_y, 0.0), (x_dimension + origin_x, y_dimension + origin_y, 0.0), (origin_x, y_dimension+ origin_y, 0.0), (origin_x, origin_y, 0.0)]
+
+        #Create Wall
+        wall_placement = self.create_ifclocalplacement(self.ifcfile, relative_to=storey_placement)
+        polyline = self.create_ifcpolyline(self.ifcfile, [(0.0, 0.0, 0.0), (5.0, 0.0, 0.0)])
+        axis_representation = self.ifcfile.createIfcShapeRepresentation(self.context, "Axis", "Curve2D", [polyline])
+
+        extrusion_placement = self.create_ifcaxis2placement(self.ifcfile, (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), (1.0, 0.0, 0.0))
+        solid = self.create_ifcextrudedareasolid(self.ifcfile, point_list_extrusion_area, extrusion_placement, (0.0, 0.0, 1.0), z_dimension)
+        body_representation = self.ifcfile.createIfcShapeRepresentation(self.context, "Body", "SweptSolid", [solid])
+
+        product_shape = self.ifcfile.createIfcProductDefinitionShape(None, None, [axis_representation, body_representation])
+
+        wall = self.ifcfile.createIfcWallStandardCase(create_guid(), self.owner_history, "Wall", "An awesome wall", None, wall_placement, product_shape, None)
+
+        # Write the contents of the file to disk
+        self.ifcfile.write(self.filename)
+
+        return x_dimension, y_dimension, z_dimension, origin_x, origin_y
+
+                
+    def change_dimension(self):
+        pass
+
+
+    def create_element(self):
+            # create_wall()
+        if self.command_sup[0] == 'wall':
+            self.create_wall()
+            
+        elif self.command_sup[0] == 'window':
+            self.text_to_voice ('Sorry But I am only one semester old, and cannot do that now!')
+            
+        elif self.command_sup[0] == 'door':
+            self.text_to_voice ('Sorry But I am only one semester old, and cannot do that now!')
+
+
+    def get_action(self, command_type):
+
+        if command_type[0] == 'colour':
+            self.change_wall_color()
+            
+        elif command_type[0] == 'dimension':
+            self.change_dimension()
+            
+        elif command_type[0] == 'element':
+            self.create_element()
+            
+        elif command_type[0] == 'file':
+            self.open_file()     
+
+
+    def voice_to_action(self):
+        self.text_to_voice ('Hi, how can I help you')
+        raw_text = self.get_voice()
+        command_type, command_sup = self.nlp(raw_text, self.sensitive_keywords)
+        self.get_action(command_type)
