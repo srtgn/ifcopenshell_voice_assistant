@@ -10,21 +10,15 @@ import time
 import tempfile
 
 
+
 class VoiceAssistant():
-
-    def __init__(self):
         
-        self.text_to_voice ('Hi, how can I help you')
-        self.raw_text_init = self.get_voice()
-
-        self.ifc_file_name = "two_wall"
-        self.sensitive_keywords = ["colour", "dimension", "element", "file", "report"]
-        self.colours = ["red","blue","yellow"]   
-        self.dimensions = ["x","y","height"]
-        self.elements = ["wall","window","door"]
-        self.files = ["4","5","6"]
-        self.reports = ["height","something","something"]     
-
+    sensitive_keywords = ["colour", "dimension", "element", "file", "report"]
+    colours = ["red","blue","yellow"]
+    dimensions = ["x","y","height"]
+    elements = ["wall","window","door"]
+    files = ["4","5","6"]
+    reports = ["height","something","something"]
 
     def text_to_voice (self, text):
 
@@ -164,6 +158,28 @@ class VoiceAssistant():
         return ifcextrudedareasolid
         
     
+
+    # IFC hierarchy creation
+    # def get_ifc_heirarchy(self):
+    #     site_placement = self.create_ifclocalplacement(self.ifcfile)
+    #     site = self.ifcfile.createIfcSite(self.create_guid(), self.owner_history, "Site", None, None, site_placement, None, None, "ELEMENT", None, None, None, None, None)
+
+    #     building_placement = self.create_ifclocalplacement(self.ifcfile, relative_to=site_placement)
+    #     building = self.ifcfile.createIfcBuilding(self.create_guid(), self.owner_history, 'Building', None, None, building_placement, None, None, "ELEMENT", None, None, None)
+
+    #     storey_placement = self.create_ifclocalplacement(self.ifcfile, relative_to=building_placement)
+    #     elevation = 0.0
+    #     building_storey = self.ifcfile.createIfcBuildingStorey(self.create_guid(), self.owner_history, 'Storey', None, None, storey_placement, None, None, "ELEMENT", elevation)
+
+    #     container_storey = self.ifcfile.createIfcRelAggregates(self.create_guid(),self.owner_history, "Building Container", None, building, [building_storey])
+    #     container_site = self.ifcfile.createIfcRelAggregates(self.create_guid(), self.owner_history, "Site Container", None, site, [building])
+    #     container_project = self.ifcfile.createIfcRelAggregates(self.create_guid(), self.owner_history, "Project Container", None, self.project, [site])
+
+    #     return site_placement, site, building_placement, building, storey_placement, building_storey, container_storey, container_site, container_project
+
+    # site_placement, site, building_placement, building, storey_placement, building_storey, container_storey, container_site, container_project = get_ifc_heirarchy()
+        
+    #Wall Input Conversations
     def create_wall(self):
 
         create_guid = lambda: ifcopenshell.guid.compress(uuid.uuid1().hex)
@@ -242,21 +258,23 @@ class VoiceAssistant():
 
     def create_element(self):
 
-        command_type_of_vta, command_sup_of_vta = self.nlp(self.raw_text_init, self.sensitive_keywords)
-
-        if command_sup_of_vta[0] == 'wall':
+        if self.command_sup_of_vta[0] == 'wall':
             self.create_wall()
             
-        elif command_sup_of_vta[0] == 'window':
+        elif self.command_sup_of_vta[0] == 'window':
             self.text_to_voice ('Sorry But I am only one semester old, and cannot do that now!')
             
-        elif command_sup_of_vta[0] == 'door':
+        elif self.command_sup_of_vta[0] == 'door':
             self.text_to_voice ('Sorry But I am only one semester old, and cannot do that now!')
 
-    
-    def get_height_limit(self, ifc_file_name):
 
-        ifcfile = ifcopenshell.open(f"./{ifc_file_name}.ifc")
+    ##Height of the Wall
+    # walls.Representation.Representations[1].Items[0][3]
+    
+    def get_height_limit(self):
+         
+        ifcfile = ifcopenshell.open(f"./one_m.ifc")
+        # ifcfile = ifcopenshell.open(f"./{ifc_file_name}.ifc")
         walls = ifcfile.by_type('IfcWall')
         answers = ["yes", "no"]
         self.text_to_voice (f"What is the height limit\n")
@@ -285,28 +303,86 @@ class VoiceAssistant():
             self.text_to_voice (f"ok ")
 
 
-    def get_action(self):
+    # def get_action(self, command_type, command_sup):
 
-        command_type_of_vta, command_sup_of_vta = self.nlp(self.raw_text_init, self.sensitive_keywords)
+    #     if command_type[0] == 'colour':
+    #         self.change_wall_color()
+            
+    #     elif command_type[0] == 'dimension':
+    #         self.change_dimension()
+            
+    #     elif command_type[0] == 'element':
+    #         self.create_element()
+            
+    #     elif command_type[0] == 'file':
+    #         self.open_file()
 
-        if command_type_of_vta[0] == 'colour':
-            self.change_wall_color()
-            
-        elif command_type_of_vta[0] == 'dimension':
-            self.change_dimension()
-            
-        elif command_type_of_vta[0] == 'element':
-            self.create_element()
-            
-        elif command_type_of_vta[0] == 'file':
-            self.open_file()
-
-        elif command_type_of_vta[0] == 'report':
-            self.get_height_limit(self.ifc_file_name)      
+    #     elif command_type[0] == 'report':
+    #         self.get_height_limit()      
 
 
     def voice_to_action(self):
-        # self.text_to_voice ('Hi, how can I help you')
-        # raw_text_vat = self.get_voice()
-        self.get_action()
+        self.text_to_voice ('Hi, how can I help you')
+        raw_text = self.get_voice()
+        command_type, command_sup = self.nlp(raw_text, self.sensitive_keywords)
+        # self.get_action(command_type, command_sup)
+        # return command_type_of_vta, command_sup_of_vta
+        if command_type[0] == 'colour':
+            self.change_wall_color()
+            
+        elif command_type[0] == 'dimension':
+            self.change_dimension()
+            
+        elif command_type[0] == 'element':
 
+            if command_sup[0] == 'wall':
+                self.create_wall()
+                
+            elif command_sup[0] == 'window':
+                self.text_to_voice ('Sorry But I am only one semester old, and cannot do that now!')
+                
+            elif command_sup[0] == 'door':
+                self.text_to_voice ('Sorry But I am only one semester old, and cannot do that now!')
+                
+        elif command_type[0] == 'file':
+            self.open_file()
+
+        elif command_type[0] == 'report':
+            self.get_height_limit() 
+
+
+    
+    ##Height of the Wall
+    # walls.Representation.Representations[1].Items[0][3]
+    
+    # def get_height_limit(self, ifc_file_name):
+
+    #     ifcfile = ifcopenshell.open(f"./{ifc_file_name}.ifc")
+    #     walls = ifcfile.by_type('IfcWall')
+    #     answers = ["yes", "no"]
+    #     self.text_to_voice (f"What is the height limit\n")
+    #     text = []
+    #     text = self.get_voice()
+    #     element_limit = int(re.findall('\d*\.?\d+', text)[0])
+
+    #     short_wall_index = []
+    #     for i in range(0, len(walls)):
+    #         wall_height = walls[i].Representation.Representations[1].Items[0][3]
+    #         if wall_height < element_limit:
+    #             short_wall_index.append(i)
+
+    #     self.text_to_voice (f"You have {len(walls)} walls and {len(short_wall_index)} of them are shorter than {element_limit} meter.") 
+    #     self.text_to_voice (f"Would you like to hear the ids\n")
+
+    #     raw_text = self.get_voice()
+
+    #     if ([x for x in answers if x in raw_text][0]) == 'yes':
+    #         for i in short_wall_index:
+    #             print(i, walls[i])
+    #         self.text_to_voice (f"The IDs are {short_wall_index} ")
+
+    #     elif ([x for x in answers if x in raw_text][0]) == 'no':
+
+    #         self.text_to_voice (f"ok ")
+
+        
