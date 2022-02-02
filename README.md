@@ -1,8 +1,8 @@
 # **Voice Assistant For BIM**
 ## Design Driven Project - Final Documentation
 ------
-### *Beyzanur Kaya, Saeed Rastegarian*
-<br/>
+<!-- ### *Beyzanur Kaya, Saeed Rastegarian*
+<br/> -->
 
 
 ## **Definition**<br/>
